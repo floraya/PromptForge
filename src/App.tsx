@@ -22,6 +22,8 @@ import { GoogleAuthBar } from './components/GoogleAuthBar';
 import { PromptCard } from './components/PromptCard';
 import { PromptRunner } from './components/PromptRunner';
 import { PromptEditorModal } from './components/PromptEditorModal';
+import { UnauthorizedDomainModal } from './components/UnauthorizedDomainModal';
+import firebaseConfig from '../firebase-applet-config.json';
 import {
   Search,
   Plus,
@@ -75,6 +77,7 @@ export default function App() {
   // Editor Modal state
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState<PromptTemplate | null>(null);
+  const [showDomainModal, setShowDomainModal] = useState(false);
 
   // Filters & Search
   const [selectedCategory, setSelectedCategory] = useState<string>('全部類別');
@@ -144,7 +147,12 @@ export default function App() {
       }
     } catch (err: any) {
       console.error('Sign-in error:', err);
-      showNotification(`登入失敗: ${err.message || err}`, 'error');
+      const errMsg = err?.message || String(err);
+      if (errMsg.includes('auth/unauthorized-domain') || err?.code === 'auth/unauthorized-domain') {
+        setShowDomainModal(true);
+      } else {
+        showNotification(`登入失敗: ${errMsg}`, 'error');
+      }
     } finally {
       setIsConnectingAuth(false);
     }
@@ -620,6 +628,13 @@ export default function App() {
           setEditingPrompt(null);
         }}
         onSave={handleSavePrompt}
+      />
+
+      {/* Unauthorized Domain Guide Modal */}
+      <UnauthorizedDomainModal
+        isOpen={showDomainModal}
+        onClose={() => setShowDomainModal(false)}
+        projectId={firebaseConfig.projectId || 'gen-lang-client-0776135231'}
       />
 
       {/* Footer */}

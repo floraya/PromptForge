@@ -71,3 +71,15 @@
    # 生成的靜態網頁檔案位於 dist/ 目錄
    ```
 
+---
+
+## 🔑 啟用 GitHub Pages 上的 Google 登入 (解決 auth/unauthorized-domain)
+
+Firebase 基於安全機制，預設只允許 Google Cloud Run 網域進行 Google OAuth。若在 GitHub Pages 上登入，必須將您的 GitHub Pages 網域加入白名單：
+
+1. 開啟 [Firebase 控制台 - Authentication 設定](https://console.firebase.google.com/project/gen-lang-client-0776135231/authentication/settings)。
+2. 切換至 **設定 (Settings)** ➔ **已授權網域 (Authorized domains)**。
+3. 點擊 **新增網域 (Add domain)**。
+4. 輸入 `floraya.github.io`（注意：不需要加上 `https://` 或後面的 `/PromptForge/`），點擊 **儲存 (Save)**。
+5. 完成後重新整理 `https://floraya.github.io/PromptForge/` 即可正常登入並同步 Google 試算表！
+
