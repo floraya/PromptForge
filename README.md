@@ -52,3 +52,22 @@
 5. **連結 Google 試算表**：
    - 點擊頂端「使用 Google 登入同步試算表」。
    - 點擊「建立團隊同步試算表」，後續所有新提示詞與版本均會同步至 Google 試算表保存！
+
+---
+
+## 🌐 GitHub Pages 部署說明
+
+本專案已支援部署至 GitHub Pages (`https://floraya.github.io/PromptForge/`)：
+
+1. **自動部署 (GitHub Actions)**：
+   - 專案已內建 `.github/workflows/deploy.yml`。
+   - 至 GitHub 倉庫的 **Settings** -> **Pages** -> **Build and deployment**。
+   - 將 **Source** 改為 **GitHub Actions**。
+   - 推送代碼至 `main` 分支時將自動打包並發布至 GitHub Pages。
+
+2. **手動本地打包**：
+   ```bash
+   GITHUB_PAGES=true npm run build
+   # 生成的靜態網頁檔案位於 dist/ 目錄
+   ```
+
