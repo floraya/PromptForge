@@ -81,7 +81,6 @@ export default function App() {
 
   // Filters & Search
   const [selectedCategory, setSelectedCategory] = useState<string>('全部類別');
-  const [selectedTag, setSelectedTag] = useState<string>('全部');
   const [searchQuery, setSearchQuery] = useState('');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
@@ -309,15 +308,9 @@ export default function App() {
     );
   };
 
-  // Compute all available unique tags across prompts
-  const allTags = Array.from(new Set(prompts.flatMap((p) => p.tags))).filter(Boolean);
-
   // Filter prompts
   const filteredPrompts = prompts.filter((p) => {
     if (selectedCategory !== '全部類別' && p.category !== selectedCategory) {
-      return false;
-    }
-    if (selectedTag !== '全部' && !p.tags.includes(selectedTag)) {
       return false;
     }
     if (showFavoritesOnly && !p.isFavorite) {
@@ -445,44 +438,44 @@ export default function App() {
           </div>
         ) : (
           /* Prompt Library Hub (Like https://godofprompt.ai/prompt-library) */
-          <div className="space-y-8">
+          <div className="space-y-6">
             {/* Hero Section */}
-            <div className="relative rounded-3xl bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 p-6 sm:p-10 text-center overflow-hidden">
+            <div className="relative rounded-2xl bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 py-6 px-4 sm:px-8 text-center overflow-hidden">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-indigo-500/10 via-transparent to-transparent pointer-events-none"></div>
 
-              <div className="max-w-3xl mx-auto space-y-4 relative z-10">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/80 border border-indigo-700/40 text-indigo-400 text-xs font-medium">
-                  <Flame className="w-3.5 h-3.5 text-amber-400" />
+              <div className="max-w-2xl mx-auto space-y-3 relative z-10">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-950/80 border border-indigo-700/40 text-indigo-400 text-[11px] font-medium">
+                  <Flame className="w-3 h-3 text-amber-400" />
                   <span>神級提示詞庫 (Prompt Library) & 自訂填空生成器</span>
                 </div>
 
-                <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight">
-                  精準釋放 AI 潛能的 <br className="hidden sm:inline" />
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight leading-tight">
+                  精準釋放 AI 潛能的{' '}
                   <span className="bg-gradient-to-r from-indigo-400 via-violet-300 to-emerald-400 bg-clip-text text-transparent">
                     專業提示詞庫與工作流
                   </span>
                 </h1>
 
-                <p className="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed">
+                <p className="text-xs sm:text-sm text-slate-400 max-w-xl mx-auto leading-relaxed">
                   參考 God of Prompt 體驗，支援動態變數填寫、即時產生複製提示詞。
                   可一鍵將自訂提示詞備份並寫入 Google 試算表進行版本管理與團隊多人同步！
                 </p>
 
                 {/* Big Search Input */}
-                <div className="pt-2 max-w-xl mx-auto">
+                <div className="pt-1 max-w-lg mx-auto">
                   <div className="relative flex items-center">
-                    <Search className="w-5 h-5 text-slate-500 absolute left-4 pointer-events-none" />
+                    <Search className="w-4 h-4 text-slate-500 absolute left-3.5 pointer-events-none" />
                     <input
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="搜尋提示詞標題、描述、變數或標籤..."
-                      className="w-full pl-11 pr-4 py-3 rounded-2xl bg-slate-900 border border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-white placeholder-slate-500 text-sm outline-none shadow-lg transition"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-white placeholder-slate-500 text-xs sm:text-sm outline-none shadow-md transition"
                     />
                     {searchQuery && (
                       <button
                         onClick={() => setSearchQuery('')}
-                        className="absolute right-3.5 text-xs text-slate-400 hover:text-white px-1.5 py-0.5 rounded bg-slate-800"
+                        className="absolute right-3 text-xs text-slate-400 hover:text-white px-1.5 py-0.5 rounded bg-slate-800"
                       >
                         清除
                       </button>
@@ -493,9 +486,9 @@ export default function App() {
             </div>
 
             {/* Filter Navigation: Categories & Tags */}
-            <div className="space-y-4">
-              {/* Category Pills */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+            <div className="space-y-3">
+              {/* Category Pills - Wrap downward without horizontal scroll */}
+              <div className="flex flex-wrap items-center gap-2">
                 {CATEGORIES.map((category) => {
                   const isActive = selectedCategory === category;
                   const count =
@@ -507,7 +500,7 @@ export default function App() {
                     <button
                       key={category}
                       onClick={() => setSelectedCategory(category)}
-                      className={`shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
                         isActive
                           ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
                           : 'bg-slate-900 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800'
@@ -528,36 +521,6 @@ export default function App() {
 
               {/* Tag filters & favorites toggle */}
               <div className="flex flex-wrap items-center justify-between gap-3 text-xs pt-1 border-t border-slate-900">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-slate-500 flex items-center gap-1">
-                    <Filter className="w-3.5 h-3.5 text-slate-500" />
-                    熱門標籤:
-                  </span>
-                  <button
-                    onClick={() => setSelectedTag('全部')}
-                    className={`px-2 py-1 rounded-md text-xs cursor-pointer transition ${
-                      selectedTag === '全部'
-                        ? 'bg-slate-800 text-indigo-400 font-bold'
-                        : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    全部
-                  </button>
-                  {allTags.map((tag) => (
-                    <button
-                      key={tag}
-                      onClick={() => setSelectedTag(tag === selectedTag ? '全部' : tag)}
-                      className={`px-2 py-0.5 rounded-md text-xs transition cursor-pointer flex items-center gap-0.5 ${
-                        selectedTag === tag
-                          ? 'bg-indigo-950 text-indigo-300 border border-indigo-700/60 font-semibold'
-                          : 'text-slate-400 hover:text-slate-300 hover:bg-slate-900'
-                      }`}
-                    >
-                      <span>#{tag}</span>
-                    </button>
-                  ))}
-                </div>
-
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
@@ -570,11 +533,11 @@ export default function App() {
                     <Star className={`w-3.5 h-3.5 ${showFavoritesOnly ? 'fill-amber-400 text-amber-400' : ''}`} />
                     <span>只看最愛 ({prompts.filter((p) => p.isFavorite).length})</span>
                   </button>
-
-                  <span className="text-slate-500 text-xs">
-                    顯示 <strong>{filteredPrompts.length}</strong> 個提示詞模板
-                  </span>
                 </div>
+
+                <span className="text-slate-500 text-xs">
+                  顯示 <strong>{filteredPrompts.length}</strong> 個提示詞模板
+                </span>
               </div>
             </div>
 
@@ -589,7 +552,6 @@ export default function App() {
                 <button
                   onClick={() => {
                     setSelectedCategory('全部類別');
-                    setSelectedTag('全部');
                     setSearchQuery('');
                     setShowFavoritesOnly(false);
                   }}
