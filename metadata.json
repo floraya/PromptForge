@@ -1,0 +1,6 @@
+{
+  "name": "PromptForge - 專業提示詞庫與生成器",
+  "description": "參考 God of Prompt 的提示詞庫與生成器，支援動態變數填入、標籤分類管理，並可將提示詞同步寫入 Google 試算表進行版本管理與多人協作。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
