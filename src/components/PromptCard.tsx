@@ -9,6 +9,7 @@ import {
   Star,
   Layers,
   Edit,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 interface PromptCardProps {
@@ -24,10 +25,12 @@ export const PromptCard: React.FC<PromptCardProps> = ({
   onEdit,
   onToggleFavorite,
 }) => {
+  const displayImage = prompt.previewImageUrl || prompt.showcaseImages?.[0];
+
   return (
     <div
       onClick={() => onSelect(prompt)}
-      className="group relative bg-slate-900/90 hover:bg-slate-900 border border-slate-800 hover:border-indigo-500/60 rounded-2xl p-5 shadow-sm hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-200 cursor-pointer flex flex-col justify-between"
+      className="group relative bg-slate-900/90 hover:bg-slate-900 border border-slate-800 hover:border-indigo-500/60 rounded-2xl p-5 shadow-sm hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-200 cursor-pointer flex flex-col justify-between overflow-hidden"
     >
       <div className="space-y-3">
         {/* Category & Version & Favorite */}
@@ -54,6 +57,23 @@ export const PromptCard: React.FC<PromptCardProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Thumbnail Preview if prompt has images */}
+        {displayImage && (
+          <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-slate-950 border border-slate-800/80 group-hover:border-indigo-500/30 transition">
+            <img
+              src={displayImage}
+              alt={prompt.title}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+            {prompt.showcaseImages && prompt.showcaseImages.length > 1 && (
+              <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-950/80 text-slate-300 border border-slate-700/60 flex items-center gap-1">
+                <ImageIcon className="w-2.5 h-2.5 text-indigo-400" />
+                <span>{prompt.showcaseImages.length} 張</span>
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Title */}
         <h3 className="text-base font-bold text-white group-hover:text-indigo-300 transition-colors line-clamp-2 leading-snug">

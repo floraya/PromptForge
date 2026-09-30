@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PromptTemplate } from '../types/prompt';
 import { extractVariables, formatLabel } from '../utils/templateUtils';
+import { ImageUploader } from './ImageUploader';
 import {
   Sparkles,
   Save,
@@ -12,6 +13,7 @@ import {
   Trash2,
   AlertCircle,
   Sheet as SheetIcon,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { CATEGORIES } from '../types/prompt';
 
@@ -40,6 +42,7 @@ export const PromptEditorModal: React.FC<PromptEditorModalProps> = ({
   const [tags, setTags] = useState<string[]>([]);
   const [author, setAuthor] = useState('');
   const [syncToSheet, setSyncToSheet] = useState(true);
+  const [images, setImages] = useState<string[]>([]);
 
   // Extracted variables in real-time
   const [detectedVars, setDetectedVars] = useState<string[]>([]);
@@ -54,6 +57,14 @@ export const PromptEditorModal: React.FC<PromptEditorModalProps> = ({
       setContent(initialPrompt.content);
       setTags([...initialPrompt.tags]);
       setAuthor(initialPrompt.author || '');
+      // Collect initial images
+      const initialImages = initialPrompt.showcaseImages?.length
+        ? [...initialPrompt.showcaseImages]
+        : initialPrompt.previewImageUrl
+        ? [initialPrompt.previewImageUrl]
+        : [];
+      setImages(initialImages);
+
       const initialLabels: Record<string, string> = {};
       const initialDefaults: Record<string, string> = {};
       initialPrompt.variables.forEach((v) => {
@@ -65,13 +76,14 @@ export const PromptEditorModal: React.FC<PromptEditorModalProps> = ({
     } else {
       // Default template for generator
       setTitle('');
-      setCategory('軟體架構 & 工程');
+      setCategory(CATEGORIES[1]);
       setDescription('');
       setContent(
         `你是一位經驗豐富的【{專業角色}】。\n\n請根據以下背景為我完成【{任務目標}】：\n- 目標客群/讀者：{目標受眾}\n- 風格與語調：{語調風格}\n- 關鍵產出要求：{詳細規格}\n\n請提供結構清晰、條理分明的執行步驟與實例。`
       );
       setTags(['AI 生成', '自訂模板']);
       setAuthor('');
+      setImages([]);
       setCustomLabels({});
       setVarDefaultValues({});
     }
@@ -146,6 +158,8 @@ export const PromptEditorModal: React.FC<PromptEditorModalProps> = ({
       createdAt: initialPrompt?.createdAt || now,
       updatedAt: now,
       isFavorite: initialPrompt?.isFavorite || false,
+      previewImageUrl: images[0] || undefined,
+      showcaseImages: images.length > 0 ? images : undefined,
     };
 
     onSave(newPrompt, hasGoogleSync && syncToSheet);
@@ -260,10 +274,21 @@ export const PromptEditorModal: React.FC<PromptEditorModalProps> = ({
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={handleAddTag}
-                placeholder="輸入標籤如 '行銷'、'API'..."
+                placeholder="輸入標籤如 'Midjourney'、'行銷'、'API'..."
                 className="bg-transparent text-xs text-white placeholder-slate-500 outline-none flex-1 min-w-[120px] px-1 py-0.5"
               />
             </div>
+          </div>
+
+          {/* Generated Result Images Upload (成果展示圖片) */}
+          <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80">
+            <ImageUploader
+              images={images}
+              onChange={setImages}
+              maxImages={5}
+              label="上傳產生後的圖片 (成果展示 / 範例圖)"
+              description="可上傳 AI 產生後的實際圖片成果（例如 Midjourney、Flux、DALL-E 或 UI 產出截圖），讓使用者快速預覽效果！"
+            />
           </div>
 
           {/* Content with Variable quick inserter */}

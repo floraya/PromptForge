@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PromptTemplate } from '../types/prompt';
 import { fillTemplate } from '../utils/templateUtils';
 import {
@@ -14,12 +14,18 @@ import {
   ChevronDown,
   Layers,
   ArrowRight,
+  Image as ImageIcon,
+  Upload,
+  Plus,
+  Maximize2,
+  X,
 } from 'lucide-react';
 
 interface PromptRunnerProps {
   prompt: PromptTemplate;
   onEditPrompt: (prompt: PromptTemplate) => void;
   onSyncThisPromptToSheet?: (prompt: PromptTemplate) => void;
+  onUpdatePromptImages?: (promptId: string, images: string[]) => void;
   isSyncing?: boolean;
   sheetUrl?: string;
 }
@@ -28,12 +34,23 @@ export const PromptRunner: React.FC<PromptRunnerProps> = ({
   prompt,
   onEditPrompt,
   onSyncThisPromptToSheet,
+  onUpdatePromptImages,
   isSyncing = false,
   sheetUrl,
 }) => {
   const [values, setValues] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState(false);
   const [showRawTemplate, setShowRawTemplate] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const quickUploadRef = useRef<HTMLInputElement>(null);
+
+  // Combine showcase images
+  const allImages = prompt.showcaseImages?.length
+    ? prompt.showcaseImages
+    : prompt.previewImageUrl
+    ? [prompt.previewImageUrl]
+    : [];
 
   // Initialize values from prompt defaults or fallback
   useEffect(() => {
@@ -65,6 +82,60 @@ export const PromptRunner: React.FC<PromptRunnerProps> = ({
       setTimeout(() => setCopied(false), 2200);
     } catch (err) {
       console.error('Failed to copy', err);
+    }
+  };
+
+  const handleQuickUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    Array.from(files).forEach((file) => {
+      if (!file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target?.result as string;
+        if (dataUrl) {
+          const img = new Image();
+          img.src = dataUrl;
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const maxDim = 1200;
+            let width = img.width;
+            let height = img.height;
+            if (width > maxDim || height > maxDim) {
+              if (width > height) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              } else {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, width, height);
+              const compressed = canvas.toDataURL('image/webp', 0.85);
+              const updated = [...allImages, compressed];
+              onUpdatePromptImages?.(prompt.id, updated);
+            }
+          };
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    if (quickUploadRef.current) {
+      quickUploadRef.current.value = '';
+    }
+  };
+
+  const handleRemoveImage = (idxToRemove: number) => {
+    const updated = allImages.filter((_, idx) => idx !== idxToRemove);
+    onUpdatePromptImages?.(prompt.id, updated);
+    if (activeImageIndex >= updated.length) {
+      setActiveImageIndex(Math.max(0, updated.length - 1));
     }
   };
 
@@ -150,10 +221,32 @@ export const PromptRunner: React.FC<PromptRunnerProps> = ({
         </div>
       </div>
 
+      {/* Lightbox Modal */}
+      {lightboxImage && (
+        <div
+          onClick={() => setLightboxImage(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in"
+        >
+          <div className="relative max-w-5xl max-h-[90vh]">
+            <img
+              src={lightboxImage}
+              alt="全尺寸 AI 產生成果圖"
+              className="max-h-[90vh] max-w-full rounded-2xl shadow-2xl object-contain border border-slate-700"
+            />
+            <button
+              onClick={() => setLightboxImage(null)}
+              className="absolute top-4 right-4 p-2 rounded-xl bg-slate-900/80 text-white hover:bg-slate-800 border border-slate-700 transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main 2-Column Runner: Variables on Left, Generated Prompt on Right */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Input Variables (like God of Prompt) */}
-        <div className="lg:col-span-5 space-y-4">
+        {/* Left Column: Input Variables + Generated Output Images below */}
+        <div className="lg:col-span-5 space-y-5">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-2">
@@ -228,6 +321,111 @@ export const PromptRunner: React.FC<PromptRunnerProps> = ({
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </div>
+
+          {/* Generated Output Image Showcase Gallery - Located directly under Variables */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                  <ImageIcon className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">AI 產生成果圖展示 (Generated Images)</h3>
+                  <p className="text-[11px] text-slate-400">
+                    共 {allImages.length} 張成果圖
+                  </p>
+                </div>
+              </div>
+
+              {/* Quick Upload button directly in runner */}
+              <div>
+                <input
+                  type="file"
+                  ref={quickUploadRef}
+                  onChange={handleQuickUpload}
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => quickUploadRef.current?.click()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 text-xs font-semibold transition active:scale-95 cursor-pointer"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>上傳圖片</span>
+                </button>
+              </div>
+            </div>
+
+            {allImages.length === 0 ? (
+              <div
+                onClick={() => quickUploadRef.current?.click()}
+                className="border border-dashed border-slate-700/80 hover:border-indigo-500/60 rounded-xl p-6 text-center bg-slate-950/40 hover:bg-slate-900/60 transition cursor-pointer space-y-2 group"
+              >
+                <div className="w-10 h-10 mx-auto rounded-full bg-slate-800 flex items-center justify-center text-slate-400 group-hover:text-indigo-400 transition">
+                  <Upload className="w-5 h-5" />
+                </div>
+                <p className="text-xs font-medium text-slate-300">
+                  尚未上傳此提示詞產生後的成果圖片
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  點擊此處可立即從電腦上傳 AI 產出的效果圖，展示給團隊與使用者！
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {/* Main Selected Image Showcase */}
+                <div className="relative rounded-xl overflow-hidden bg-slate-950 border border-slate-800 max-h-[360px] flex items-center justify-center group">
+                  <img
+                    src={allImages[activeImageIndex] || allImages[0]}
+                    alt="AI 產生成果大圖"
+                    className="max-h-[360px] w-auto object-contain cursor-zoom-in"
+                    onClick={() => setLightboxImage(allImages[activeImageIndex] || allImages[0])}
+                  />
+
+                  <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      type="button"
+                      onClick={() => setLightboxImage(allImages[activeImageIndex] || allImages[0])}
+                      className="p-1.5 rounded-lg bg-slate-900/80 backdrop-blur-sm text-slate-200 hover:text-white border border-slate-700 transition"
+                      title="全螢幕檢視"
+                    >
+                      <Maximize2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveImage(activeImageIndex)}
+                      className="p-1.5 rounded-lg bg-rose-950/80 backdrop-blur-sm text-rose-300 hover:text-white border border-rose-700/60 transition"
+                      title="刪除此圖片"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Thumbnails row */}
+                {allImages.length > 1 && (
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                    {allImages.map((img, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setActiveImageIndex(idx)}
+                        className={`relative w-14 h-14 rounded-lg overflow-hidden shrink-0 border-2 transition cursor-pointer ${
+                          activeImageIndex === idx
+                            ? 'border-indigo-500 ring-2 ring-indigo-500/30'
+                            : 'border-slate-800 opacity-70 hover:opacity-100'
+                        }`}
+                      >
+                        <img src={img} alt={`縮圖 ${idx + 1}`} className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

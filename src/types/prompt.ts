@@ -15,6 +15,8 @@ export interface PromptTemplate {
   updatedAt: string;
   syncedToSheet?: boolean;
   sheetRowIndex?: number;
+  previewImageUrl?: string; // Main showcase / result image
+  showcaseImages?: string[]; // Multiple sample / generated output images
 }
 
 export interface PromptVariable {
@@ -37,6 +39,7 @@ export interface SheetConfig {
 
 export const CATEGORIES = [
   '全部類別',
+  'AI 繪圖 & 視覺設計',
   '軟體架構 & 工程',
   '行銷與文案 (Copywriting)',
   'SEO & 內容策略',
@@ -48,6 +51,69 @@ export const CATEGORIES = [
 ] as const;
 
 export const INITIAL_PROMPT_TEMPLATES: PromptTemplate[] = [
+  {
+    id: 'midjourney-cinematic-photorealism',
+    title: 'Midjourney v6 電影級超寫實人像與光影大師',
+    slug: 'midjourney-cinematic-photorealism-portrait',
+    description: '專為 Midjourney / Flux 設計的頂級相機規格、光影材質與電影級色調提示詞，附產出圖片效果展示。',
+    category: 'AI 繪圖 & 視覺設計',
+    tags: ['Midjourney', '攝影寫實', '電影光影', 'Flux', '人像攝影'],
+    previewImageUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1000&q=80',
+    showcaseImages: [
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1000&q=80',
+      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=1000&q=80',
+      'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=1000&q=80',
+    ],
+    content: `Cinematic editorial portrait photograph of {subject_description}, {lighting_style}, shot on {camera_lens_specs}, {color_palette}, highly detailed skin texture, raw photo style, 8k resolution, film grain, photorealistic masterpiece --ar {aspect_ratio} --v 6.1 --style raw`,
+    variables: [
+      { key: 'subject_description', label: '主體特徵與服裝', defaultValue: 'a futuristic cyberpunk nomad woman with silver intricate braids, wearing a neon-lined tactical techwear jacket in a rainy Tokyo alley', placeholder: '描述人物外貌、神情與穿著' },
+      { key: 'lighting_style', label: '光影與氛圍', defaultValue: 'dramatic Rembrandt lighting with soft amber rim lights and cool cyan fill reflections', placeholder: '如：golden hour, dramatic neon' },
+      { key: 'camera_lens_specs', label: '相機與鏡頭參數', defaultValue: 'Hasselblad H6D-100c with 85mm f/1.2 lens, shallow depth of field, natural bokeh', placeholder: '如：Sony A7R V 50mm f/1.4' },
+      { key: 'color_palette', label: '色彩調色', defaultValue: 'Kodak Portra 400 color grading with muted shadows and vivid highlights', placeholder: '如：cyberpunk teal & orange' },
+      { key: 'aspect_ratio', label: '圖片比例 (Aspect Ratio)', defaultValue: '16:9', placeholder: '例如：16:9, 9:16, 1:1, 4:5' },
+    ],
+    defaultValues: {
+      subject_description: 'a futuristic cyberpunk nomad woman with silver intricate braids, wearing a neon-lined tactical techwear jacket in a rainy Tokyo alley',
+      lighting_style: 'dramatic Rembrandt lighting with soft amber rim lights and cool cyan fill reflections',
+      camera_lens_specs: 'Hasselblad H6D-100c with 85mm f/1.2 lens, shallow depth of field, natural bokeh',
+      color_palette: 'Kodak Portra 400 color grading with muted shadows and vivid highlights',
+      aspect_ratio: '16:9',
+    },
+    version: 1,
+    author: 'AI Art Directors Guild',
+    createdAt: '2026-03-22T10:00:00Z',
+    updatedAt: '2026-03-28T12:00:00Z',
+    isFavorite: true,
+  },
+  {
+    id: 'modern-saas-ui-concept',
+    title: 'SaaS 現代化深色儀表板 UI/UX 設計生成器',
+    slug: 'modern-dark-mode-saas-dashboard-ui',
+    description: '產生頂級 Dribbble / Linear 風格的俐落毛玻璃微質感情境圖，可用於 Midjourney 或 UI 設計發想。',
+    category: 'AI 繪圖 & 視覺設計',
+    tags: ['UI/UX', 'Midjourney', 'Web Design', '儀表板', 'Dribbble'],
+    previewImageUrl: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1000&q=80',
+    showcaseImages: [
+      'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1000&q=80',
+      'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1000&q=80',
+    ],
+    content: `Modern sleek UI/UX web app dashboard design for {product_domain}, dark mode aesthetic inspired by Linear and Stripe, {key_components}, sophisticated typography, vibrant neon accent colors on deep obsidian background, glassmorphism card components, clean data visualization charts, isometric mockup perspective, dribbble trending, ultra crisp UI render --ar {aspect_ratio} --v 6.1`,
+    variables: [
+      { key: 'product_domain', label: '產品領域', defaultValue: 'AI-driven cloud infrastructure management and automated cost optimization', placeholder: '如：Crypto FinTech / E-commerce CRM' },
+      { key: 'key_components', label: '關鍵視覺元件', defaultValue: 'interactive glowing cluster maps, real-time latency line charts, and modern status badges', placeholder: '如：3D charts, sidebar navigation' },
+      { key: 'aspect_ratio', label: '畫面比例', defaultValue: '16:9', placeholder: '16:9 或 4:3' },
+    ],
+    defaultValues: {
+      product_domain: 'AI-driven cloud infrastructure management and automated cost optimization',
+      key_components: 'interactive glowing cluster maps, real-time latency line charts, and modern status badges',
+      aspect_ratio: '16:9',
+    },
+    version: 1,
+    author: 'DesignCraft Studio',
+    createdAt: '2026-03-24T14:00:00Z',
+    updatedAt: '2026-03-29T08:00:00Z',
+    isFavorite: true,
+  },
   {
     id: 'full-stack-arch',
     title: '全端軟體架構設計師 (Full-Stack Software Architect)',

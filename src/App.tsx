@@ -277,6 +277,22 @@ export default function App() {
     }
   };
 
+  // Quick update images for a prompt (e.g. from runner)
+  const handleUpdatePromptImages = (promptId: string, images: string[]) => {
+    setPrompts((prev) =>
+      prev.map((p) => {
+        if (p.id !== promptId) return p;
+        return {
+          ...p,
+          previewImageUrl: images[0] || undefined,
+          showcaseImages: images.length > 0 ? images : undefined,
+          updatedAt: new Date().toISOString(),
+        };
+      })
+    );
+    showNotification('成果圖片已成功更新！');
+  };
+
   // Sync a single prompt from Runner view
   const handleSyncSinglePrompt = async (prompt: PromptTemplate) => {
     if (!accessToken || !sheetConfig) {
@@ -432,6 +448,7 @@ export default function App() {
                 setIsEditorOpen(true);
               }}
               onSyncThisPromptToSheet={accessToken ? handleSyncSinglePrompt : undefined}
+              onUpdatePromptImages={handleUpdatePromptImages}
               isSyncing={isSyncing}
               sheetUrl={sheetConfig?.spreadsheetUrl}
             />
