@@ -5,7 +5,6 @@ import { ImageUploader } from './ImageUploader';
 import {
   Sparkles,
   Save,
-  Tag,
   Folder,
   Layers,
   HelpCircle,
@@ -38,8 +37,6 @@ export const PromptEditorModal: React.FC<PromptEditorModalProps> = ({
   const [category, setCategory] = useState<string>(CATEGORIES[1]);
   const [description, setDescription] = useState('');
   const [content, setContent] = useState('');
-  const [tagInput, setTagInput] = useState('');
-  const [tags, setTags] = useState<string[]>([]);
   const [author, setAuthor] = useState('');
   const [syncToSheet, setSyncToSheet] = useState(true);
   const [images, setImages] = useState<string[]>([]);
@@ -55,7 +52,6 @@ export const PromptEditorModal: React.FC<PromptEditorModalProps> = ({
       setCategory(initialPrompt.category);
       setDescription(initialPrompt.description);
       setContent(initialPrompt.content);
-      setTags([...initialPrompt.tags]);
       setAuthor(initialPrompt.author || '');
       // Collect initial images
       const initialImages = initialPrompt.showcaseImages?.length
@@ -81,7 +77,6 @@ export const PromptEditorModal: React.FC<PromptEditorModalProps> = ({
       setContent(
         `你是一位經驗豐富的【{專業角色}】。\n\n請根據以下背景為我完成【{任務目標}】：\n- 目標客群/讀者：{目標受眾}\n- 風格與語調：{語調風格}\n- 關鍵產出要求：{詳細規格}\n\n請提供結構清晰、條理分明的執行步驟與實例。`
       );
-      setTags(['AI 生成', '自訂模板']);
       setAuthor('');
       setImages([]);
       setCustomLabels({});
@@ -96,20 +91,6 @@ export const PromptEditorModal: React.FC<PromptEditorModalProps> = ({
   }, [content]);
 
   if (!isOpen) return null;
-
-  const handleAddTag = (e: React.KeyboardEvent | React.MouseEvent) => {
-    if ('key' in e && e.key !== 'Enter') return;
-    e.preventDefault();
-    const trimmed = tagInput.trim();
-    if (trimmed && !tags.includes(trimmed)) {
-      setTags([...tags, trimmed]);
-      setTagInput('');
-    }
-  };
-
-  const handleRemoveTag = (tagToRemove: string) => {
-    setTags(tags.filter((t) => t !== tagToRemove));
-  };
 
   const insertVariablePlaceholder = (varName: string) => {
     const placeholder = `{${varName}}`;
@@ -148,7 +129,7 @@ export const PromptEditorModal: React.FC<PromptEditorModalProps> = ({
       title: title.trim(),
       slug: title.trim().toLowerCase().replace(/[\s\W-]+/g, '-'),
       category,
-      tags: tags.length > 0 ? tags : ['精選'],
+      tags: initialPrompt?.tags && initialPrompt.tags.length > 0 ? initialPrompt.tags : [],
       description: description.trim() || '使用者自訂提示詞模板',
       content: content.trim(),
       variables: compiledVariables,
@@ -245,39 +226,6 @@ export const PromptEditorModal: React.FC<PromptEditorModalProps> = ({
               placeholder="說明這個提示詞的使用情境、解決什麼核心問題與預期產出..."
               className="w-full px-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700 focus:border-indigo-500 text-white placeholder-slate-500 text-sm outline-none transition"
             />
-          </div>
-
-          {/* Tags */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-              <Tag className="w-3.5 h-3.5 text-indigo-400" />
-              標籤分類 (Tags - 按 Enter 新增)
-            </label>
-            <div className="flex flex-wrap items-center gap-2 p-2 rounded-xl bg-slate-800/80 border border-slate-700 min-h-[42px]">
-              {tags.map((t) => (
-                <span
-                  key={t}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-950/80 text-indigo-300 border border-indigo-700/50 text-xs font-medium"
-                >
-                  #{t}
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveTag(t)}
-                    className="hover:text-rose-400 transition"
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-              <input
-                type="text"
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={handleAddTag}
-                placeholder="輸入標籤如 'Midjourney'、'行銷'、'API'..."
-                className="bg-transparent text-xs text-white placeholder-slate-500 outline-none flex-1 min-w-[120px] px-1 py-0.5"
-              />
-            </div>
           </div>
 
           {/* Generated Result Images Upload (成果展示圖片) */}
