@@ -14,10 +14,14 @@ export const SHEET_HEADERS = [
   '版本號',
   '作者',
   '更新時間',
+  '成果預覽圖 (URL)',
+  '成果圖片列表 (JSON)',
 ];
 
 /**
  * Creates a brand new Google Spreadsheet dedicated to storing Prompt Library templates.
+ * Also configures Google Drive permissions so that anyone with the link can view (or edit),
+ * making it a truly shared public prompt repository for all users.
  */
 export async function createPromptSpreadsheet(
   accessToken: string,
@@ -61,6 +65,13 @@ export async function createPromptSpreadsheet(
   // Write header row and format header
   await appendOrSetHeaders(accessToken, spreadsheetId, sheetTitle);
 
+  // Automatically make the sheet shared publicly ("anyone with the link can view / edit")
+  try {
+    await makeSheetPubliclyShared(accessToken, spreadsheetId);
+  } catch (permErr) {
+    console.warn('Could not set public permission automatically:', permErr);
+  }
+
   return {
     spreadsheetId,
     spreadsheetUrl,
@@ -68,6 +79,23 @@ export async function createPromptSpreadsheet(
     autoSync: true,
     lastSyncedAt: new Date().toISOString(),
   };
+}
+
+/**
+ * Sets Google Drive permission: Anyone with the link can view (or edit)
+ */
+export async function makeSheetPubliclyShared(accessToken: string, spreadsheetId: string): Promise<void> {
+  await fetch(`${DRIVE_API_BASE}/files/${spreadsheetId}/permissions`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      role: 'reader', // anyone with link can view
+      type: 'anyone',
+    }),
+  });
 }
 
 /**
@@ -114,7 +142,7 @@ export async function syncPromptToSheet(
   prompt: PromptTemplate
 ): Promise<{ success: boolean; spreadsheetUrl: string; rowUpdated?: number }> {
   // First, fetch existing rows to find if this prompt ID already exists
-  const readRange = `${config.sheetTitle}!A:J`;
+  const readRange = `${config.sheetTitle}!A:L`;
   const readRes = await fetch(
     `${SHEETS_API_BASE}/${config.spreadsheetId}/values/${encodeURIComponent(readRange)}`,
     {
@@ -152,11 +180,13 @@ export async function syncPromptToSheet(
     `v${prompt.version}`,
     prompt.author || '匿名',
     new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }),
+    prompt.previewImageUrl || '',
+    prompt.showcaseImages ? JSON.stringify(prompt.showcaseImages) : '',
   ];
 
   if (targetRowIndex > 0) {
     // Update existing row
-    const updateRange = `${config.sheetTitle}!A${targetRowIndex}:J${targetRowIndex}`;
+    const updateRange = `${config.sheetTitle}!A${targetRowIndex}:L${targetRowIndex}`;
     const updateRes = await fetch(
       `${SHEETS_API_BASE}/${config.spreadsheetId}/values/${encodeURIComponent(updateRange)}?valueInputOption=USER_ENTERED`,
       {
@@ -185,7 +215,7 @@ export async function syncPromptToSheet(
     };
   } else {
     // Append new row
-    const appendRange = `${config.sheetTitle}!A:J`;
+    const appendRange = `${config.sheetTitle}!A:L`;
     const appendRes = await fetch(
       `${SHEETS_API_BASE}/${config.spreadsheetId}/values/${encodeURIComponent(appendRange)}:append?valueInputOption=USER_ENTERED`,
       {
@@ -235,11 +265,13 @@ export async function batchSyncAllToSheet(
       `v${p.version}`,
       p.author || '團隊協作',
       new Date(p.updatedAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }),
+      p.previewImageUrl || '',
+      p.showcaseImages ? JSON.stringify(p.showcaseImages) : '',
     ]),
   ];
 
   const clearRes = await fetch(
-    `${SHEETS_API_BASE}/${config.spreadsheetId}/values/${encodeURIComponent(config.sheetTitle + '!A:J')}:clear`,
+    `${SHEETS_API_BASE}/${config.spreadsheetId}/values/${encodeURIComponent(config.sheetTitle + '!A:L')}:clear`,
     {
       method: 'POST',
       headers: {
@@ -274,29 +306,53 @@ export async function batchSyncAllToSheet(
 
 /**
  * Pulls prompt templates from a linked Google Sheet back into the application.
+ * Supports reading with accessToken OR via Google's public spreadsheet CSV/JSON export if shared publicly.
  */
 export async function pullPromptsFromSheet(
-  accessToken: string,
+  accessToken: string | null,
   config: SheetConfig
 ): Promise<PromptTemplate[]> {
-  const range = `${config.sheetTitle}!A2:J500`;
-  const res = await fetch(
-    `${SHEETS_API_BASE}/${config.spreadsheetId}/values/${encodeURIComponent(range)}`,
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    }
-  );
+  // If we have an accessToken, use Google Sheets API directly
+  if (accessToken) {
+    const range = `${config.sheetTitle}!A2:L500`;
+    const res = await fetch(
+      `${SHEETS_API_BASE}/${config.spreadsheetId}/values/${encodeURIComponent(range)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`無法從試算表抓取資料: ${err}`);
+    if (res.ok) {
+      const data = await res.json();
+      const rows: string[][] = data.values || [];
+      return parseRowsToPrompts(rows);
+    }
   }
 
-  const data = await res.json();
-  const rows: string[][] = data.values || [];
+  // Fallback for public shared sheets (Anyone on the internet with the link can view)
+  // Fetch using the public CSV/tsv export URL (works without requiring login)
+  try {
+    const publicCsvUrl = `https://docs.google.com/spreadsheets/d/${config.spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(config.sheetTitle)}`;
+    const csvRes = await fetch(publicCsvUrl);
+    if (csvRes.ok) {
+      const csvText = await csvRes.text();
+      const parsedRows = parseCsvToRows(csvText);
+      // Skip header row
+      return parseRowsToPrompts(parsedRows.slice(1));
+    }
+  } catch (publicErr) {
+    console.warn('Public CSV pull failed:', publicErr);
+  }
 
+  throw new Error('無法從試算表抓取資料，請確認試算表已開啟「知道連結的使用者皆可檢視」或已登入授權。');
+}
+
+/**
+ * Parses 2D array of Google Sheets rows into PromptTemplate objects
+ */
+function parseRowsToPrompts(rows: string[][]): PromptTemplate[] {
   const pulledPrompts: PromptTemplate[] = [];
 
   for (const row of rows) {
@@ -322,6 +378,18 @@ export async function pullPromptsFromSheet(
     const author = row[8] || '試算表同步';
     const updatedAt = row[9] || new Date().toISOString();
 
+    const previewImageUrl = row[10] || undefined;
+    let showcaseImages: string[] | undefined = undefined;
+    try {
+      if (row[11]) {
+        showcaseImages = JSON.parse(row[11]);
+      } else if (previewImageUrl) {
+        showcaseImages = [previewImageUrl];
+      }
+    } catch {
+      showcaseImages = previewImageUrl ? [previewImageUrl] : undefined;
+    }
+
     const defaultValues: Record<string, string> = {};
     variables.forEach((v) => {
       if (v.key) defaultValues[v.key] = v.defaultValue || '';
@@ -342,10 +410,63 @@ export async function pullPromptsFromSheet(
       createdAt: updatedAt,
       updatedAt,
       syncedToSheet: true,
+      previewImageUrl,
+      showcaseImages,
     });
   }
 
   return pulledPrompts;
+}
+
+/**
+ * Simple CSV parser handling quotes and commas
+ */
+function parseCsvToRows(csvText: string): string[][] {
+  const rows: string[][] = [];
+  let currentRow: string[] = [];
+  let currentField = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < csvText.length; i++) {
+    const char = csvText[i];
+    const nextChar = csvText[i + 1];
+
+    if (inQuotes) {
+      if (char === '"') {
+        if (nextChar === '"') {
+          currentField += '"';
+          i++; // Skip escaped quote
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        currentField += char;
+      }
+    } else {
+      if (char === '"') {
+        inQuotes = true;
+      } else if (char === ',') {
+        currentRow.push(currentField);
+        currentField = '';
+      } else if (char === '\r') {
+        // ignore CR
+      } else if (char === '\n') {
+        currentRow.push(currentField);
+        rows.push(currentRow);
+        currentRow = [];
+        currentField = '';
+      } else {
+        currentField += char;
+      }
+    }
+  }
+
+  if (currentField || currentRow.length > 0) {
+    currentRow.push(currentField);
+    rows.push(currentRow);
+  }
+
+  return rows;
 }
 
 /**

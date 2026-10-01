@@ -23,6 +23,7 @@ import { PromptCard } from './components/PromptCard';
 import { PromptRunner } from './components/PromptRunner';
 import { PromptEditorModal } from './components/PromptEditorModal';
 import { UnauthorizedDomainModal } from './components/UnauthorizedDomainModal';
+import { ConnectSheetModal } from './components/ConnectSheetModal';
 import firebaseConfig from '../firebase-applet-config.json';
 import {
   Search,
@@ -78,6 +79,7 @@ export default function App() {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState<PromptTemplate | null>(null);
   const [showDomainModal, setShowDomainModal] = useState(false);
+  const [showConnectModal, setShowConnectModal] = useState(false);
 
   // Filters & Search
   const [selectedCategory, setSelectedCategory] = useState<string>('全部類別');
@@ -120,6 +122,32 @@ export default function App() {
       console.error('Failed to save sheetConfig to localStorage', e);
     }
   }, [sheetConfig]);
+
+  // Automatically pull shared prompts on launch or if sheetConfig is set
+  useEffect(() => {
+    if (!sheetConfig) return;
+    pullPromptsFromSheet(accessToken, sheetConfig)
+      .then((pulled) => {
+        if (pulled.length > 0) {
+          setPrompts((prev) => {
+            const map = new Map<string, PromptTemplate>();
+            prev.forEach((p) => map.set(p.id, p));
+            pulled.forEach((p) => {
+              const old = map.get(p.id);
+              map.set(p.id, {
+                ...p,
+                isFavorite: old?.isFavorite || false,
+              });
+            });
+            return Array.from(map.values());
+          });
+          setSheetConfig((prev) => (prev ? { ...prev, lastSyncedAt: new Date().toISOString() } : null));
+        }
+      })
+      .catch((e) => {
+        console.warn('Initial auto pull error:', e);
+      });
+  }, [accessToken, sheetConfig?.spreadsheetId]);
 
   // Keep selectedPrompt synchronized with prompts state if updated
   useEffect(() => {
@@ -207,8 +235,8 @@ export default function App() {
 
   // Pull latest updates from Google Spreadsheet (Multi-user sync)
   const handlePullFromSheet = async () => {
-    if (!accessToken || !sheetConfig) {
-      showNotification('請先登入並連結試算表', 'error');
+    if (!sheetConfig) {
+      setShowConnectModal(true);
       return;
     }
     setIsSyncing(true);
@@ -228,7 +256,8 @@ export default function App() {
         });
         const merged = Array.from(map.values());
         setPrompts(merged);
-        showNotification(`成功從 Google 試算表載入 ${pulled.length} 筆提示詞資料！`);
+        setSheetConfig({ ...sheetConfig, lastSyncedAt: new Date().toISOString() });
+        showNotification(`成功從共用試算表同步載入 ${pulled.length} 筆所有人上傳的提示詞！`);
       } else {
         showNotification('試算表中尚無資料列');
       }
@@ -237,6 +266,55 @@ export default function App() {
       showNotification(`載入失敗: ${err.message}`, 'error');
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  // Connect to an existing shared Google Sheet
+  const handleConnectExistingSheet = async (sheetUrlOrId: string) => {
+    let sheetId = sheetUrlOrId.trim();
+    // Match ID from URL like https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit
+    const match = sheetId.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    if (match && match[1]) {
+      sheetId = match[1];
+    }
+
+    const newConfig: SheetConfig = {
+      spreadsheetId: sheetId,
+      spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${sheetId}/edit`,
+      sheetTitle: '提示詞模板庫',
+      autoSync: true,
+      lastSyncedAt: new Date().toISOString(),
+    };
+
+    // Test pulling from it
+    const pulled = await pullPromptsFromSheet(accessToken, newConfig);
+    setSheetConfig(newConfig);
+
+    if (pulled.length > 0) {
+      const map = new Map<string, PromptTemplate>();
+      prompts.forEach((p) => map.set(p.id, p));
+      pulled.forEach((p) => {
+        const old = map.get(p.id);
+        map.set(p.id, {
+          ...p,
+          isFavorite: old?.isFavorite || false,
+        });
+      });
+      setPrompts(Array.from(map.values()));
+      showNotification(`成功連結並載入 ${pulled.length} 筆共用提示詞！`);
+    } else {
+      showNotification('已成功綁定共用試算表！');
+    }
+  };
+
+  // Copy shareable link for others to join
+  const handleShareSheet = async () => {
+    if (!sheetConfig) return;
+    try {
+      await navigator.clipboard.writeText(sheetConfig.spreadsheetUrl);
+      showNotification('已複製 Google 試算表共用網址！將此網址分享給他人即可同步提示詞庫。');
+    } catch {
+      showNotification(`共用網址: ${sheetConfig.spreadsheetUrl}`);
     }
   };
 
@@ -356,6 +434,8 @@ export default function App() {
         onCreateSheet={handleCreateSheet}
         onSyncAll={handleSyncAll}
         onPullFromSheet={handlePullFromSheet}
+        onOpenConnectModal={() => setShowConnectModal(true)}
+        onShareSheet={handleShareSheet}
       />
 
       {/* Main Navigation Header */}
@@ -614,6 +694,14 @@ export default function App() {
         isOpen={showDomainModal}
         onClose={() => setShowDomainModal(false)}
         projectId={firebaseConfig.projectId || 'gen-lang-client-0776135231'}
+      />
+
+      {/* Connect Shared Sheet Modal */}
+      <ConnectSheetModal
+        isOpen={showConnectModal}
+        currentSpreadsheetUrl={sheetConfig?.spreadsheetUrl}
+        onClose={() => setShowConnectModal(false)}
+        onConnect={handleConnectExistingSheet}
       />
 
       {/* Footer */}
