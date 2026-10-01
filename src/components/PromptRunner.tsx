@@ -99,7 +99,7 @@ export const PromptRunner: React.FC<PromptRunnerProps> = ({
           img.src = dataUrl;
           img.onload = () => {
             const canvas = document.createElement('canvas');
-            const maxDim = 1200;
+            const maxDim = 720;
             let width = img.width;
             let height = img.height;
             if (width > maxDim || height > maxDim) {
@@ -116,7 +116,10 @@ export const PromptRunner: React.FC<PromptRunnerProps> = ({
             const ctx = canvas.getContext('2d');
             if (ctx) {
               ctx.drawImage(img, 0, 0, width, height);
-              const compressed = canvas.toDataURL('image/webp', 0.85);
+              let compressed = canvas.toDataURL('image/webp', 0.65);
+              if (compressed.length >= 40000) {
+                compressed = canvas.toDataURL('image/jpeg', 0.55);
+              }
               const updated = [...allImages, compressed];
               onUpdatePromptImages?.(prompt.id, updated);
             }

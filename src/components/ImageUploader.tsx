@@ -64,13 +64,13 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
     }
   };
 
-  // Helper to resize/compress image to ~1200px max and webp/jpeg 0.82 quality
+  // Helper to resize/compress image to ~720px max and compact webp/jpeg to stay very light
   const compressImage = (dataUrl: string, callback: (compressed: string) => void) => {
     const img = new Image();
     img.src = dataUrl;
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      const maxDim = 1200;
+      const maxDim = 720;
       let width = img.width;
       let height = img.height;
 
@@ -89,8 +89,12 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(img, 0, 0, width, height);
-        // Use webp or jpeg fallback
-        const compressed = canvas.toDataURL('image/webp', 0.85);
+        // Use webp or jpeg with good compact compression
+        let compressed = canvas.toDataURL('image/webp', 0.65);
+        if (compressed.length >= 40000) {
+          // If still large, compress further with jpeg 0.55
+          compressed = canvas.toDataURL('image/jpeg', 0.55);
+        }
         callback(compressed);
       } else {
         callback(dataUrl);

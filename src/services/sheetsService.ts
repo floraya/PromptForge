@@ -3,6 +3,73 @@ import { PromptTemplate, SheetConfig } from '../types/prompt';
 const SHEETS_API_BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
 const DRIVE_API_BASE = 'https://www.googleapis.com/drive/v3';
 
+/**
+ * Formats a prompt template into a safe array of cell values for Google Sheets.
+ * Google Sheets has a strict limit of 50,000 characters per cell.
+ * If base64 images exceed cell limits, we safely handle them so sync never crashes with 400.
+ */
+const MAX_CELL_CHAR_LIMIT = 48000;
+
+function safeCell(value: any): string {
+  if (value === null || value === undefined) return '';
+  const str = typeof value === 'string' ? value : String(value);
+  if (str.length > MAX_CELL_CHAR_LIMIT) {
+    return str.slice(0, MAX_CELL_CHAR_LIMIT);
+  }
+  return str;
+}
+
+/**
+ * Prepares image values safely for Google Sheets:
+ * - URL images (http/https) are always preserved completely.
+ * - Oversized data:image base64 strings that exceed cell limit are truncated/omitted or condensed.
+ */
+function prepareImageForSheet(imgUrl?: string): string {
+  if (!imgUrl) return '';
+  if (imgUrl.startsWith('http://') || imgUrl.startsWith('https://')) {
+    return imgUrl;
+  }
+  // If base64 is within cell limit, keep it; otherwise skip base64 to avoid Google Sheets 50000 char error
+  if (imgUrl.length < MAX_CELL_CHAR_LIMIT) {
+    return imgUrl;
+  }
+  return '';
+}
+
+function prepareShowcaseImagesForSheet(images?: string[]): string {
+  if (!images || images.length === 0) return '';
+  // Keep external URLs and reasonably sized images
+  const safeImages: string[] = [];
+  let totalLength = 2; // '[]'
+  for (const img of images) {
+    const safe = prepareImageForSheet(img);
+    if (safe) {
+      if (totalLength + safe.length + 5 < MAX_CELL_CHAR_LIMIT) {
+        safeImages.push(safe);
+        totalLength += safe.length + 5;
+      }
+    }
+  }
+  return safeImages.length > 0 ? JSON.stringify(safeImages) : '';
+}
+
+function mapPromptToRow(prompt: PromptTemplate): string[] {
+  return [
+    safeCell(prompt.id),
+    safeCell(prompt.title),
+    safeCell(prompt.category),
+    safeCell(prompt.tags?.join(', ') || ''),
+    safeCell(prompt.description),
+    safeCell(prompt.content),
+    safeCell(JSON.stringify(prompt.variables || [])),
+    safeCell(`v${prompt.version || 1}`),
+    safeCell(prompt.author || '團隊協作'),
+    safeCell(new Date(prompt.updatedAt || Date.now()).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })),
+    prepareImageForSheet(prompt.previewImageUrl),
+    prepareShowcaseImagesForSheet(prompt.showcaseImages),
+  ];
+}
+
 export const SHEET_HEADERS = [
   'ID',
   '標題',
@@ -169,20 +236,7 @@ export async function syncPromptToSheet(
     }
   }
 
-  const rowValues = [
-    prompt.id,
-    prompt.title,
-    prompt.category,
-    prompt.tags.join(', '),
-    prompt.description,
-    prompt.content,
-    JSON.stringify(prompt.variables),
-    `v${prompt.version}`,
-    prompt.author || '匿名',
-    new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }),
-    prompt.previewImageUrl || '',
-    prompt.showcaseImages ? JSON.stringify(prompt.showcaseImages) : '',
-  ];
+  const rowValues = mapPromptToRow(prompt);
 
   if (targetRowIndex > 0) {
     // Update existing row
@@ -254,20 +308,7 @@ export async function batchSyncAllToSheet(
 ): Promise<void> {
   const allRows = [
     SHEET_HEADERS,
-    ...prompts.map((p) => [
-      p.id,
-      p.title,
-      p.category,
-      p.tags.join(', '),
-      p.description,
-      p.content,
-      JSON.stringify(p.variables),
-      `v${p.version}`,
-      p.author || '團隊協作',
-      new Date(p.updatedAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }),
-      p.previewImageUrl || '',
-      p.showcaseImages ? JSON.stringify(p.showcaseImages) : '',
-    ]),
+    ...prompts.map((p) => mapPromptToRow(p)),
   ];
 
   const clearRes = await fetch(
